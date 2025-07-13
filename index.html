@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureBank Login - CTF Challenge</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+
+        .success {
+            background: #efe;
+            color: #383;
+            border: 1px solid #cfc;
+        }
+
+        .info {
+            background: #eef;
+            color: #336;
+            border: 1px solid #ccf;
+        }
+
+        .hint {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            color: #856404;
+        }
+
+        .challenge-info {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .challenge-info h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .challenge-info ul {
+            color: #666;
+            margin-left: 20px;
+        }
+
+        .challenge-info li {
+            margin-bottom: 5px;
+        }
+
+        .sql-output {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏦 SecureBank</h1>
+            <p>Ultra-Secure Banking System v2.1</p>
+        </div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+
+            <button type="submit" class="btn">Login</button>
+        </form>
+
+        <div id="result" class="result"></div>
+
+        <div class="hint">
+            <strong>🎯 Challenge Goal:</strong> Find the flag hidden in the database!<br>
+            <strong>🔍 Hint:</strong> The security team implemented WAF rules and input validation. Can you bypass them?
+        </div>
+
+        <div class="challenge-info">
+            <h3>Challenge Information</h3>
+            <ul>
+                <li><strong>Difficulty:</strong> Hard</li>
+                <li><strong>Techniques Required:</strong> Advanced SQL injection, WAF bypass, encoding</li>
+                <li><strong>Database:</strong> MySQL</li>
+                <li><strong>Flag Format:</strong> PHASE{...}</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Simulated database
+        const database = {
+            users: [
+                { id: 1, username: 'admin', password: 'admin123', role: 'admin' },
+                { id: 2, username: 'user', password: 'password', role: 'user' },
+                { id: 3, username: 'guest', password: 'guest', role: 'guest' }
+            ],
+            secrets: [
+                { id: 1, user_id: 1, secret: 'PHASE{SQL_N1nj4_M4st3r_2024}' },
+                { id: 2, user_id: 1, secret: 'admin_backup_codes: 1234-5678-9012' },
+                { id: 3, user_id: 2, secret: 'user_personal_note: Remember to buy milk' }
+            ]
+        };
+
+        // WAF rules (simplified)
+        const wafRules = [
+            /union/i,
+            /select/i,
+            /insert/i,
+            /update/i,
+            /delete/i,
+            /drop/i,
+            /create/i,
+            /alter/i,
+            /exec/i,
+            /script/i,
+            /--/,
+            /\/\*/,
+            /\*\//,
+            /;/,
+            /or\s+1\s*=\s*1/i,
+            /and\s+1\s*=\s*1/i,
+            /'.*or.*'/i,
+            /".*or.*"/i
+        ];
+
+        // Input sanitization (basic)
+        function sanitizeInput(input) {
+            return input.replace(/[<>]/g, '');
+        }
+
+        // WAF check
+        function checkWAF(input) {
+            for (let rule of wafRules) {
+                if (rule.test(input)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Advanced WAF bypass detection
+        function advancedWAFCheck(input) {
+            // Check for encoded payloads
+            const decoded = decodeURIComponent(input);
+            
+            // Check for hex encoding bypass
+            if (input.includes('0x') || decoded.includes('0x')) {
+                return false;
+            }
+            
+            // Check for comment variations
+            if (input.includes('/*') || input.includes('*/') || input.includes('--') || input.includes('#')) {
+                return false;
+            }
+            
+            // Check for space bypass attempts
+            if (input.includes('/**/') || input.includes('\t') || input.includes('\n') || input.includes('\r')) {
+                return false;
+            }
+            
+            return true;
+        }
+
+        // Vulnerable SQL query simulation
+        function executeQuery(username, password) {
+            // Simulate SQL query construction
+            const query = `SELECT * FROM users WHERE username='${username}' AND password='${password}'`;
+            
+            // Check for basic SQL injection patterns
+            if (username.includes("'") || password.includes("'")) {
+                // Advanced injection detection
+                if (username.includes("' OR '1'='1") || 
+                    username.includes("' OR 1=1--") ||
+                    username.includes("' UNION SELECT") ||
+                    password.includes("' OR '1'='1") ||
+                    password.includes("' OR 1=1--")) {
+                    
+                    // Simulate successful injection
+                    return {
+                        success: true,
+                        query: query,
+                        results: database.users,
+                        injection: true
+                    };
+                }
+                
+                // Check for advanced bypasses
+                if (username.includes("' OR '1'='1' /*") ||
+                    username.includes("' OR 1=1 /*") ||
+                    username.includes("' OR 'a'='a") ||
+                    username.includes("' OR '1'='1' --") ||
+                    username.includes("' OR '1'='1' #")) {
+                    
+                    return {
+                        success: true,
+                        query: query,
+                        results: database.users,
+                        injection: true,
+                        advanced: true
+                    };
+                }
+                
+                // Check for UNION-based injection
+                if (username.toLowerCase().includes('union') && 
+                    username.toLowerCase().includes('select')) {
+                    
+                    // Simulate UNION injection revealing secrets
+                    return {
+                        success: true,
+                        query: query,
+                        results: [...database.users, ...database.secrets],
+                        injection: true,
+                        union: true
+                    };
+                }
+            }
+            
+            // Normal authentication
+            const user = database.users.find(u => u.username === username && u.password === password);
+            if (user) {
+                return {
+                    success: true,
+                    query: query,
+                    results: [user],
+                    injection: false
+                };
+            }
+            
+            return {
+                success: false,
+                query: query,
+                results: [],
+                injection: false
+            };
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            // Input sanitization
+            const sanitizedUsername = sanitizeInput(username);
+            const sanitizedPassword = sanitizeInput(password);
+            
+            // WAF checks
+            if (!checkWAF(sanitizedUsername) || !checkWAF(sanitizedPassword)) {
+                resultDiv.className = 'result error';
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <strong>🚫 WAF BLOCKED!</strong><br>
+                    Malicious input detected. Request blocked by Web Application Firewall.<br>
+                    <strong>Blocked patterns:</strong> SQL keywords, comment sequences, special characters
+                `;
+                return;
+            }
+            
+            // Advanced WAF checks
+            if (!advancedWAFCheck(sanitizedUsername) || !advancedWAFCheck(sanitizedPassword)) {
+                resultDiv.className = 'result error';
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <strong>🛡️ ADVANCED WAF TRIGGERED!</strong><br>
+                    Sophisticated attack pattern detected. Enhanced security measures activated.<br>
+                    <strong>Detection:</strong> Encoding bypass, comment variations, or space manipulation
+                `;
+                return;
+            }
+            
+            // Execute query
+            const result = executeQuery(sanitizedUsername, sanitizedPassword);
+            
+            if (result.success) {
+                if (result.injection) {
+                    resultDiv.className = 'result success';
+                    resultDiv.style.display = 'block';
+                    
+                    let html = '<strong>🎉 SQL INJECTION SUCCESSFUL!</strong><br>';
+                    
+                    if (result.union) {
+                        html += '<strong>🏆 UNION-based injection detected!</strong><br>';
+                        html += '<strong>FLAG FOUND:</strong> ' + database.secrets[0].secret + '<br>';
+                    } else if (result.advanced) {
+                        html += '<strong>Advanced bypass technique detected!</strong><br>';
+                        html += 'You bypassed basic WAF rules. Try UNION injection for the flag!<br>';
+                    } else {
+                        html += 'Authentication bypass successful! Try extracting more data.<br>';
+                    }
+                    
+                    html += '<div class="sql-output">';
+                    html += 'Query: ' + result.query + '\n\n';
+                    html += 'Results:\n';
+                    result.results.forEach(row => {
+                        html += JSON.stringify(row, null, 2) + '\n';
+                    });
+                    html += '</div>';
+                    
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.className = 'result success';
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = `
+                        <strong>✅ Login Successful!</strong><br>
+                        Welcome, ${result.results[0].username}!<br>
+                        <em>This is normal authentication - try SQL injection to find the flag!</em>
+                    `;
+                }
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <strong>❌ Access Denied!</strong><br>
+                    Invalid credentials. Your IP has been logged for security purposes.<br>
+                    <strong>Security Notice:</strong> Multiple failed attempts may result in account lockout.<br>
+                    <div class="sql-output">Query: ${result.query}
+Results: No matching records found</div>
+                `;
+            }
+        });
+
+        // Add some helpful hints for contestants
+        console.log("%c🎯 CTF Challenge: SQL Injection (Hard Level)", "color: #667eea; font-size: 16px; font-weight: bold;");
+        console.log("%c💡 Hints:", "color: #333; font-size: 14px; font-weight: bold;");
+        console.log("1. WAF is blocking basic SQL injection attempts");
+        console.log("2. Try different bypass techniques for quotes and keywords");
+        console.log("3. UNION injection might reveal more data");
+        console.log("4. The flag is in the secrets table");
+        console.log("5. Look for ways to bypass: OR, UNION, SELECT, comments");
+        console.log("%c🔍 Example payloads to try:", "color: #333; font-size: 14px; font-weight: bold;");
+        console.log("- Basic: admin' OR '1'='1' --");
+        console.log("- Advanced: admin' OR 'a'='a' /*");
+        console.log("- UNION: admin' UNION SELECT 1,secret,3 FROM secrets --");
+    </script>
+</body>
+</html>
